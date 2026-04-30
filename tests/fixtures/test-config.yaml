@@ -6,7 +6,7 @@ middleware:
       rps: 100
       perClient: true
   - auth:
-      jwtSecret: "test-secret"
+      jwtSecret: "${JWT_SECRET}"
       apiKeyHeader: "x-api-key"
       allowedKeys:
         - "key-1"
