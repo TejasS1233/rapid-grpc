@@ -1,0 +1,25 @@
+server:
+  port: 4000
+
+middleware:
+  - rateLimit:
+      rps: 100
+      perClient: true
+  - auth:
+      jwtSecret: "test-secret"
+      apiKeyHeader: "x-api-key"
+      allowedKeys:
+        - "key-1"
+  - transform:
+      request:
+        add:
+          x-gateway: "rapid-grpc"
+
+routes:
+  - match:
+      service: "users.UserService"
+    target: "localhost:50051"
+
+  - match:
+      service: "*"
+    target: "localhost:50099"
