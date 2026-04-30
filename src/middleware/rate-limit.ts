@@ -9,38 +9,48 @@ interface TokenBucket {
 interface RateLimitOptions {
   rps: number;
   perClient?: boolean;
+  store?: Map<string, TokenBucket>;
 }
 
-const buckets = new Map<string, TokenBucket>();
+class RateLimiter {
+  private buckets: Map<string, TokenBucket>;
+  private rps: number;
 
-export function clearRateLimitBuckets(): void {
-  buckets.clear();
-}
-
-function getBucket(key: string, rps: number): TokenBucket {
-  let bucket = buckets.get(key);
-  if (!bucket) {
-    bucket = { tokens: rps, lastRefill: Date.now() };
-    buckets.set(key, bucket);
+  constructor(rps: number, store?: Map<string, TokenBucket>) {
+    this.rps = rps;
+    this.buckets = store ?? new Map();
   }
 
-  const now = Date.now();
-  const elapsed = (now - bucket.lastRefill) / 1000;
-  bucket.tokens = Math.min(rps, bucket.tokens + elapsed * rps);
-  bucket.lastRefill = now;
+  getBucket(key: string): TokenBucket {
+    let bucket = this.buckets.get(key);
+    if (!bucket) {
+      bucket = { tokens: this.rps, lastRefill: Date.now() };
+      this.buckets.set(key, bucket);
+    }
 
-  return bucket;
+    const now = Date.now();
+    const elapsed = (now - bucket.lastRefill) / 1000;
+    bucket.tokens = Math.min(this.rps, bucket.tokens + elapsed * this.rps);
+    bucket.lastRefill = now;
+
+    return bucket;
+  }
+
+  clear(): void {
+    this.buckets.clear();
+  }
 }
 
 export function createRateLimitMiddleware(options: RateLimitOptions): Middleware {
-  const { rps, perClient = false } = options;
+  const { rps, perClient = false, store } = options;
+  const limiter = new RateLimiter(rps, store);
 
   return async (ctx: Context, next: () => Promise<void>) => {
     const key = perClient
       ? `rate:${ctx.get('x-client-id') || 'anonymous'}`
       : 'rate:global';
 
-    const bucket = getBucket(key, rps);
+    const bucket = limiter.getBucket(key);
 
     if (bucket.tokens < 1) {
       throw new Error('Rate limit exceeded');

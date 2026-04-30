@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createRateLimitMiddleware, clearRateLimitBuckets } from '../../src/middleware/rate-limit.js';
+import { createRateLimitMiddleware } from '../../src/middleware/rate-limit.js';
 import { Context } from '../../src/context.js';
 import * as grpc from '@grpc/grpc-js';
+
+interface TokenBucket {
+  tokens: number;
+  lastRefill: number;
+}
 
 function makeContext(clientId = 'client-1'): Context {
   const metadata = new grpc.Metadata();
@@ -16,8 +21,10 @@ function makeContext(clientId = 'client-1'): Context {
 }
 
 describe('Rate Limiter', () => {
+  let store: Map<string, TokenBucket>;
+
   beforeEach(() => {
-    clearRateLimitBuckets();
+    store = new Map();
     vi.useFakeTimers();
   });
 
@@ -26,7 +33,7 @@ describe('Rate Limiter', () => {
   });
 
   it('should allow requests under the limit', async () => {
-    const rateLimit = createRateLimitMiddleware({ rps: 2 });
+    const rateLimit = createRateLimitMiddleware({ rps: 2, store });
     const ctx = makeContext();
     let called = false;
 
@@ -35,7 +42,7 @@ describe('Rate Limiter', () => {
   });
 
   it('should block requests over the limit', async () => {
-    const rateLimit = createRateLimitMiddleware({ rps: 1 });
+    const rateLimit = createRateLimitMiddleware({ rps: 1, store });
     const ctx = makeContext();
 
     // First request should pass
@@ -50,13 +57,14 @@ describe('Rate Limiter', () => {
   });
 
   it('should refill tokens over time', async () => {
-    const rateLimit = createRateLimitMiddleware({ rps: 1 });
+    vi.setSystemTime(new Date(0));
+    const rateLimit = createRateLimitMiddleware({ rps: 1, store });
 
     // Consume the token
     await rateLimit(makeContext(), async () => {});
 
-    // Advance time by 1 second (refills 1 token)
-    vi.advanceTimersByTime(1000);
+    // Advance system time by 1 second (refills 1 token)
+    vi.setSystemTime(new Date(1000));
 
     // Should pass now
     let called = false;
@@ -65,7 +73,7 @@ describe('Rate Limiter', () => {
   });
 
   it('should track per-client limits', async () => {
-    const rateLimit = createRateLimitMiddleware({ rps: 1, perClient: true });
+    const rateLimit = createRateLimitMiddleware({ rps: 1, perClient: true, store });
 
     // Client 1 uses their token
     await rateLimit(makeContext('client-1'), async () => {});
@@ -77,7 +85,7 @@ describe('Rate Limiter', () => {
   });
 
   it('should use global bucket when perClient is false', async () => {
-    const rateLimit = createRateLimitMiddleware({ rps: 1, perClient: false });
+    const rateLimit = createRateLimitMiddleware({ rps: 1, perClient: false, store });
 
     await rateLimit(makeContext('client-1'), async () => {});
 
