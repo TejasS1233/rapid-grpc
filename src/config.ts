@@ -50,7 +50,7 @@ function processValue(obj: any, env: Record<string, string>): any {
 export function loadConfig(configPath: string, options: LoadOptions = {}): AppConfig {
   const content = fs.readFileSync(configPath, 'utf-8');
   const raw = yaml.load(content) as any;
-  const env = options.env || {};
+  const env = options.env || process.env as Record<string, string>;
 
   return processValue(raw, env);
 }

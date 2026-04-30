@@ -58,11 +58,11 @@ export class GatewayServer {
         if (typeof serviceDef !== 'function') continue;
 
         const serviceProto = (serviceDef as any).service;
-        if (!serviceProto?.service) continue;
+        if (!serviceProto) continue;
 
         const handlers: any = {};
 
-        for (const [methodName, methodDef] of Object.entries(serviceProto.service)) {
+        for (const [methodName, methodDef] of Object.entries(serviceProto)) {
           if (typeof methodDef !== 'object' || methodDef === null) continue;
 
           const fullServiceName = `${packageName}.${serviceName}`;
@@ -127,7 +127,7 @@ export class GatewayServer {
           };
         }
 
-        this.server.addService(serviceProto.service, handlers);
+        this.server.addService(serviceProto, handlers);
       }
     }
   }
