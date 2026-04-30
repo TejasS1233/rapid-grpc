@@ -191,7 +191,3 @@ tests/                # 38 tests across 8 test files
 npm test              # Run all tests
 npm run test:watch    # Watch mode
 ```
-
-## License
-
-MIT
