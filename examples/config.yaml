@@ -1,0 +1,32 @@
+server:
+  port: 4000
+
+middleware:
+  - rateLimit:
+      rps: 10
+      perClient: true
+  - auth:
+      jwtSecret: "super-secret-key"
+      apiKeyHeader: "x-api-key"
+      allowedKeys:
+        - "demo-api-key-123"
+  - transform:
+      request:
+        add:
+          x-gateway: "rapid-grpc"
+      response:
+        add:
+          x-served-by: "rapid-grpc-gateway"
+
+routes:
+  - match:
+      service: "users.UserService"
+    target: "localhost:50051"
+
+  - match:
+      service: "orders.OrderService"
+    target: "localhost:50052"
+
+  - match:
+      service: "*"
+    target: "localhost:50051"
